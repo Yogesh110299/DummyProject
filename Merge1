@@ -1,44 +1,75 @@
-# Define file paths
-$manualEntriesPath = "C:\path\to\manualentries.csv"
-$pcFilePath = "C:\path\to\pc.csv"
-$outputFilePath = "C:\path\to\MergedOutput.csv"
+function merge_manualentries {
+    param($source, $env)
+    $manualEntriesCsvPath = $Global:config.file_path + "manualentries" + ".csv"
+    $peopleCountCsvPath = $Global:config.file_path + $source + "_" + $env + ".csv"
 
-# Import CSV files
-$manualEntries = Import-Csv -Path $manualEntriesPath
-$pcData = Import-Csv -Path $pcFilePath
+    $manualEntriesCsvPath
+    $peopleCountCsvPath
+    $filename_csv = $Global:config.file_path + $source + "_" + $env + "_new" + ".csv"
+    $manualEntriesCsv = Import-Csv -Path $manualEntriesCsvPath
+    $peopleCountCsv = Import-Csv -Path $peopleCountCsvPath
 
-# Identify columns in both files
-$manualColumns = $manualEntries[0].PSObject.Properties.Name
-$pcColumns = $pcData[0].PSObject.Properties.Name | Where-Object { $_ -ne "emp_id" } # Exclude emp_id from PC columns
+    $filename_csv
+    $manualEntriesMap = @{}
 
-# Create a map (Dictionary) for quick lookup of PC data
-$pcMap = @{}
-foreach ($row in $pcData) {
-    $pcMap[$row.emp_id] = $row
-}
-
-# Merge data based on emp_id
-$mergedData = foreach ($entry in $manualEntries) {
-    $emp_id = $entry.emp_id
-    $pcEntry = $pcMap[$emp_id]  # Lookup in the map
-
-    # Create a new object to store merged data
-    $mergedRow = [ordered]@{}
-
-    # Add manual entries columns
-    foreach ($col in $manualColumns) {
-        $mergedRow[$col] = $entry.$col
+    foreach ($record in $manualEntriesCsv) {
+        $manualEntriesMap[$record.Employee_ID] = $record
     }
 
-    # Add PC columns, keeping them empty if no match found
-    foreach ($col in $pcColumns) {
-        $mergedRow[$col] = if ($pcEntry) { $pcEntry.$col } else { "" }
+    $peopleCountMap = @{}
+    foreach ($record in $peopleCountCsv) {
+        #if ($record.status -eq 'Terminated') {
+        $peopleCountMap[$record.userid] = $record
+        #}
     }
 
-    [PSCustomObject]$mergedRow
+    $mergedVerticalHiretype = @()
+    foreach ($manualEntry in $manualEntriesMap.Keys) {
+        if ($peopleCountMap.ContainsKey($manualEntry)) {
+            
+            $hrManualEntry = $manualEntriesMap[$manualEntry]
+            $peopleCount = $peopleCountMap[$manualEntry]
+
+            $Object = New-Object PSObject -Property @{
+                Vertical               = $hrManualEntry.Department
+                Rebadged_External      = $hrManualEntry.Rebadged_External_Hire
+                Report_Month           = $peopleCount.Report_Month
+                status                 = $peopleCount.status
+                userid                 = $peopleCount.userid
+                full_Name              = $peopleCount.full_Name
+                Designation_Name       = $peopleCount.Designation_Name
+                Gender                 = $peopleCount.Gender
+                Email                  = $peopleCount.Email
+                Supervisor_Employee_ID = $peopleCount.Supervisor_Employee_ID
+                HR                     = $peopleCount.HR
+                Business_unit          = $peopleCount.Business_unit
+                Pay_Grade_ID           = $peopleCount.Pay_Grade_ID           
+                Location               = $peopleCount.Location
+                Hire_Date              = $peopleCount.Hire_Date
+                home_address_state     = $peopleCount.home_address_state
+                date_of_joining        = $peopleCount.date_of_joining
+                Joining_Month          = $peopleCount.Joining_Month
+                Joining_Year           = $peopleCount.Joining_Year
+                Total_Experience       = $peopleCount.Total_Experience
+                Overall_Experience     = $peopleCount.Overall_Experience
+                Type_of_Hire           = $peopleCount.Type_of_Hire
+                Grade                  = $peopleCount.Grade
+                Grade_Group            = $peopleCount.Grade_Group 
+                Tenure                 = $peopleCount.Tenure
+                Tenure_Range           = $peopleCount.Tenure_Range
+                Date_Of_Birth          = $peopleCount.Date_Of_Birth
+                Department             = $peopleCount.Department
+                Year_of_Birth          = $peopleCount.Year_of_Birth
+                Age                    = $peopleCount.Age
+                Generation             = $peopleCount.Generation
+                Age_Range              = $peopleCount.Age_Range
+                Depart                 = $peopleCount.Depart
+                Vendor_Flag            = $peopleCount.Vendor_Flag
+            }
+            $mergedVerticalHiretype += $Object
+        }
+      
+    }
+    
+    $mergedVerticalHiretype | Export-Csv $filename_csv -Append -NoTypeInformation -Encoding UTF8 
 }
-
-# Export merged data
-$mergedData | Export-Csv -Path $outputFilePath -NoTypeInformation -Force
-
-Write-Host "Merge completed. Output saved to: $outputFilePath"
