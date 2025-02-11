@@ -1,0 +1,44 @@
+# Define file paths
+$manualEntriesPath = "C:\path\to\manualentries.csv"
+$pcFilePath = "C:\path\to\pc.csv"
+$outputFilePath = "C:\path\to\MergedOutput.csv"
+
+# Import CSV files
+$manualEntries = Import-Csv -Path $manualEntriesPath
+$pcData = Import-Csv -Path $pcFilePath
+
+# Identify columns
+$manualColumns = $manualEntries[0].PSObject.Properties.Name
+$pcColumns = $pcData[0].PSObject.Properties.Name | Where-Object { $_ -ne "user_id" }  # Exclude user_id from PC columns
+
+# Create a map (Dictionary) for quick lookup of PC data using user_id
+$pcMap = @{}
+foreach ($row in $pcData) {
+    $pcMap[$row.user_id] = $row
+}
+
+# Merge data based on emp_id (manual) and user_id (pc)
+$mergedData = foreach ($entry in $manualEntries) {
+    $emp_id = $entry.emp_id
+    $pcEntry = $pcMap[$emp_id]  # Lookup in the map using emp_id
+
+    # Create an ordered hashtable to store merged data
+    $mergedRow = [ordered]@{}
+
+    # Add manual entries columns
+    foreach ($col in $manualColumns) {
+        $mergedRow[$col] = $entry.$col
+    }
+
+    # Add PC columns, keeping them empty if no match is found
+    foreach ($col in $pcColumns) {
+        $mergedRow[$col] = if ($pcEntry) { $pcEntry.$col } else { "" }
+    }
+
+    [PSCustomObject]$mergedRow
+}
+
+# Export merged data
+$mergedData | Export-Csv -Path $outputFilePath -NoTypeInformation -Force
+
+Write-Host "Merge completed. Output saved to: $outputFilePath"
