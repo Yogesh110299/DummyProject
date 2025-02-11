@@ -1,0 +1,45 @@
+# Define file paths
+$baseFilePath = "C:\path\to\Base.csv"
+$reportFilePath = "C:\path\to\Report.csv"
+
+# Define output file paths
+$missingInReportPath = "C:\path\to\recs_present_in_base_but_report.csv"
+$missingInBasePath = "C:\path\to\recs_present_in_report_but_base.csv"
+
+# Import CSV files
+$baseData = Import-Csv -Path $baseFilePath
+$reportData = Import-Csv -Path $reportFilePath
+
+# Identify common columns (Base file columns are the key for comparison)
+$baseColumns = $baseData[0].PSObject.Properties.Name
+$reportFilteredData = $reportData | Select-Object -Property $baseColumns
+
+# Function to normalize data (Trim spaces and make lowercase)
+function Normalize-Row {
+    param ($row, $columns)
+    return ($columns | ForEach-Object { ($row.$_ -as [string]).Trim().ToLower() }) -join "|"
+}
+
+# Convert each row into a normalized unique identifier
+$baseRows = $baseData | ForEach-Object { Normalize-Row -row $_ -columns $baseColumns }
+$reportRows = $reportFilteredData | ForEach-Object { Normalize-Row -row $_ -columns $baseColumns }
+
+# Find records present in Base but missing in Report
+$missingInReport = $baseData | Where-Object { 
+    $row = Normalize-Row -row $_ -columns $baseColumns
+    -not $reportRows.Contains($row)
+}
+
+# Find records present in Report but missing in Base
+$missingInBase = $reportFilteredData | Where-Object { 
+    $row = Normalize-Row -row $_ -columns $baseColumns
+    -not $baseRows.Contains($row)
+}
+
+# Export missing records
+$missingInReport | Export-Csv -Path $missingInReportPath -NoTypeInformation -Force
+$missingInBase | Export-Csv -Path $missingInBasePath -NoTypeInformation -Force
+
+Write-Host "Comparison completed. Reports generated:"
+Write-Host "Records missing in Report: $missingInReportPath"
+Write-Host "Records missing in Base: $missingInBasePath"
