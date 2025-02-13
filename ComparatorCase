@@ -14,31 +14,43 @@ $reportData = Import-Csv -Path $reportFilePath
 $baseColumns = $baseData[0].PSObject.Properties.Name
 $reportFilteredData = $reportData | Select-Object -Property $baseColumns
 
-# Function to normalize data (Trim spaces and make lowercase)
+# Function to normalize data (Trim spaces, convert to lowercase, handle nulls)
 function Normalize-Row {
     param ($row, $columns)
-    return ($columns | ForEach-Object { ($row.$_ -as [string]).Trim().ToLower() }) -join "|"
+    return ($columns | ForEach-Object { 
+        $value = $row.$_
+        if ($null -eq $value) { "" } else { $value.ToString().Trim().ToLower() }
+    }) -join "|"
 }
 
-# Convert each row into a normalized unique identifier
-$baseRows = $baseData | ForEach-Object { Normalize-Row -row $_ -columns $baseColumns }
-$reportRows = $reportFilteredData | ForEach-Object { Normalize-Row -row $_ -columns $baseColumns }
+# Convert each row into a normalized unique identifier using a hashtable
+$baseRows = @{}
+foreach ($row in $baseData) {
+    $normalizedRow = Normalize-Row -row $row -columns $baseColumns
+    $baseRows[$normalizedRow] = $row  # Store the full row as value
+}
+
+$reportRows = @{}
+foreach ($row in $reportFilteredData) {
+    $normalizedRow = Normalize-Row -row $row -columns $baseColumns
+    $reportRows[$normalizedRow] = $row  # Store the full row as value
+}
 
 # Find records present in Base but missing in Report
 $missingInReport = $baseData | Where-Object { 
-    $row = Normalize-Row -row $_ -columns $baseColumns
-    -not $reportRows.Contains($row)
+    $rowKey = Normalize-Row -row $_ -columns $baseColumns
+    -not $reportRows.ContainsKey($rowKey)
 }
 
 # Find records present in Report but missing in Base
 $missingInBase = $reportFilteredData | Where-Object { 
-    $row = Normalize-Row -row $_ -columns $baseColumns
-    -not $baseRows.Contains($row)
+    $rowKey = Normalize-Row -row $_ -columns $baseColumns
+    -not $baseRows.ContainsKey($rowKey)
 }
 
 # Export missing records
-$missingInReport | Export-Csv -Path $missingInReportPath -NoTypeInformation -Force
-$missingInBase | Export-Csv -Path $missingInBasePath -NoTypeInformation -Force
+$missingInReport | Export-Csv -Path $missingInReportPath -NoTypeInformation -Force -Encoding UTF8
+$missingInBase | Export-Csv -Path $missingInBasePath -NoTypeInformation -Force -Encoding UTF8
 
 Write-Host "Comparison completed. Reports generated:"
 Write-Host "Records missing in Report: $missingInReportPath"
