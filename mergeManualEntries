@@ -1,6 +1,4 @@
 function merge_manualentries {
-    
-
     # File paths
     $manualEntriesCsvPath = "C:\MIS_Platform\manualentries_0212.csv"
     $peopleCountCsvPath = "C:\MIS_Platform\people_count_prd.csv"
@@ -10,27 +8,37 @@ function merge_manualentries {
     $manualEntriesCsv = Import-Csv -Path $manualEntriesCsvPath
     $peopleCountCsv = Import-Csv -Path $peopleCountCsvPath
 
-    # Create a dictionary for manual entries based on Employee_ID
+    # Create a dictionary for manual entries based on Employee_ID (normalize case and remove spaces)
     $manualEntriesMap = @{}
     foreach ($record in $manualEntriesCsv) {
-        $manualEntriesMap[$record.Employee_ID] = @{
-            Vertical          = $record.Department
-            Rebadged_External = $record.Rebadged_External_Hire
+        $empId = $record.Employee_ID.Trim().ToLower()  # Normalize key
+        if (-not [string]::IsNullOrWhiteSpace($empId)) {  
+            $manualEntriesMap[$empId] = @{
+                Vertical          = $record.Department
+                Rebadged_External = $record.Rebadged_External_Hire
+            }
         }
     }
+
+    Write-Host "Loaded manual entries: $($manualEntriesMap.Count)"
 
     # Merged result array
     $mergedData = @()
 
     foreach ($peopleCount in $peopleCountCsv) {
-        $empId = $peopleCount.userid  # Match Employee_ID from manual entries with userid in people count
+        $empId = $peopleCount.userid.Trim().ToLower()  # Normalize key
 
-        # Check if empId exists in manualEntries
-        $manualData = $manualEntriesMap[$empId]
+        if ($manualEntriesMap.ContainsKey($empId)) {
+            $manualData = $manualEntriesMap[$empId]
+            Write-Host "Match Found: $empId → Vertical: $($manualData.Vertical), Rebadged: $($manualData.Rebadged_External)"
+        } else {
+            Write-Host "No Match Found for: $empId"
+            $manualData = @{ Vertical = $peopleCount.Vertical; Rebadged_External = $peopleCount.Rebadged_External }
+        }
         
         $Object = New-Object PSObject -Property @{
-            Vertical               = if ($manualData) { $manualData.Vertical } else { $peopleCount.Vertical }
-            Rebadged_External      = if ($manualData) { $manualData.Rebadged_External } else { $peopleCount.Rebadged_External }
+            Vertical               = $manualData.Vertical
+            Rebadged_External      = $manualData.Rebadged_External
             Report_Month           = $peopleCount.Report_Month
             status                 = $peopleCount.status
             userid                 = $peopleCount.userid
