@@ -1,0 +1,75 @@
+function merge_manualentries {
+    
+
+    # File paths
+    $manualEntriesCsvPath = "C:\MIS_Platform\manualentries_0212.csv"
+    $peopleCountCsvPath = "C:\MIS_Platform\people_count_prd.csv"
+    $outputCsvPath = "C:\MIS_Platform\output files\people_count_prd.csv"
+
+    # Import CSV files
+    $manualEntriesCsv = Import-Csv -Path $manualEntriesCsvPath
+    $peopleCountCsv = Import-Csv -Path $peopleCountCsvPath
+
+    # Create a dictionary for manual entries based on Employee_ID
+    $manualEntriesMap = @{}
+    foreach ($record in $manualEntriesCsv) {
+        $manualEntriesMap[$record.Employee_ID] = @{
+            Vertical          = $record.Department
+            Rebadged_External = $record.Rebadged_External_Hire
+        }
+    }
+
+    # Merged result array
+    $mergedData = @()
+
+    foreach ($peopleCount in $peopleCountCsv) {
+        $empId = $peopleCount.userid  # Match Employee_ID from manual entries with userid in people count
+
+        # Check if empId exists in manualEntries
+        $manualData = $manualEntriesMap[$empId]
+        
+        $Object = New-Object PSObject -Property @{
+            Vertical               = if ($manualData) { $manualData.Vertical } else { $peopleCount.Vertical }
+            Rebadged_External      = if ($manualData) { $manualData.Rebadged_External } else { $peopleCount.Rebadged_External }
+            Report_Month           = $peopleCount.Report_Month
+            status                 = $peopleCount.status
+            userid                 = $peopleCount.userid
+            full_Name              = $peopleCount.full_Name
+            Designation_Name       = $peopleCount.Designation_Name
+            Gender                 = $peopleCount.Gender
+            Email                  = $peopleCount.Email
+            Supervisor_Employee_ID = $peopleCount.Supervisor_Employee_ID
+            HR                     = $peopleCount.HR
+            Business_unit          = $peopleCount.Business_unit
+            Pay_Grade_ID           = $peopleCount.Pay_Grade_ID           
+            Location               = $peopleCount.Location
+            Hire_Date              = $peopleCount.Hire_Date
+            home_address_state     = $peopleCount.home_address_state
+            date_of_joining        = $peopleCount.date_of_joining
+            Joining_Month          = $peopleCount.Joining_Month
+            Joining_Year           = $peopleCount.Joining_Year
+            Total_Experience       = $peopleCount.Total_Experience
+            Overall_Experience     = $peopleCount.Overall_Experience
+            Type_of_Hire           = $peopleCount.Type_of_Hire
+            Grade                  = $peopleCount.Grade
+            Grade_Group            = $peopleCount.Grade_Group 
+            Tenure                 = $peopleCount.Tenure
+            Tenure_Range           = $peopleCount.Tenure_Range
+            Date_Of_Birth          = $peopleCount.Date_Of_Birth
+            Department             = $peopleCount.Department
+            Year_of_Birth          = $peopleCount.Year_of_Birth
+            Age                    = $peopleCount.Age
+            Generation             = $peopleCount.Generation
+            Age_Range              = $peopleCount.Age_Range
+            Depart                 = $peopleCount.Depart
+            Vendor_Flag            = $peopleCount.Vendor_Flag
+        }
+        
+        $mergedData += $Object
+    }
+
+    # Export merged data
+    $mergedData | Export-Csv -Path $outputCsvPath -NoTypeInformation -Encoding UTF8 -Force 
+
+    Write-Host "Merge completed. Output saved to: $outputCsvPath"
+}
