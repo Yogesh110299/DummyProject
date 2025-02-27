@@ -1,0 +1,44 @@
+Sub CompareSheets()
+    Dim ws1 As Worksheet, ws2 As Worksheet
+    Dim lastRow1 As Long, lastRow2 As Long
+    Dim dict As Object
+    Dim i As Long, key As String, matchFound As Boolean
+    
+    ' Set worksheets (Modify sheet names as needed)
+    Set ws1 = ThisWorkbook.Sheets("Sheet1") ' First Sheet
+    Set ws2 = ThisWorkbook.Sheets("Sheet2") ' Second Sheet
+    
+    ' Find last rows
+    lastRow1 = ws1.Cells(ws1.Rows.Count, 1).End(xlUp).Row
+    lastRow2 = ws2.Cells(ws2.Rows.Count, 1).End(xlUp).Row
+    
+    ' Create dictionary to store values from Sheet2
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    ' Load Sheet2 data into dictionary
+    For i = 2 To lastRow2 ' Assuming headers in Row 1
+        key = CleanText(ws2.Cells(i, 1).Value) & "|" & ws2.Cells(i, 2).Value & "|" & ws2.Cells(i, 3).Value
+        dict(key) = True
+    Next i
+    
+    ' Compare with Sheet1 and store results
+    For i = 2 To lastRow1
+        key = CleanText(ws1.Cells(i, 1).Value) & "|" & ws1.Cells(i, 2).Value & "|" & ws1.Cells(i, 3).Value
+        If dict.exists(key) Then
+            ws1.Cells(i, 4).Value = "Match" ' Store result in column D
+        Else
+            ws1.Cells(i, 4).Value = "No Match"
+        End If
+    Next i
+    
+    MsgBox "Comparison complete! Check Column D in Sheet1.", vbInformation
+End Sub
+
+' Function to remove special characters from Name
+Function CleanText(ByVal txt As String) As String
+    Dim regex As Object
+    Set regex = CreateObject("VBScript.RegExp")
+    regex.Pattern = "[^A-Za-z0-9]" ' Keep only letters and numbers
+    regex.Global = True
+    CleanText = LCase(regex.Replace(txt, "")) ' Convert to lowercase
+End Function
