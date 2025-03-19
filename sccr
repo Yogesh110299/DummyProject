@@ -1,0 +1,362 @@
+function parse_people_count {
+
+    param($p_url_data, $source, $env)
+
+    $peopleCount = @()
+
+    $filename_csv = $Global:config.file_path + $source + "_" + $env + ".csv" 
+
+    foreach ($result in $p_url_data) {
+        $Report_Month = ""
+        $status = ""
+        $userid = ""
+        $Full_Name = ""
+        $Designation_Name = ""
+        $Gender = ""
+        $Email = ""
+        $Supervisor_Employee_ID = ""
+        $HR = ""
+        $Business_unit = ""
+        $Pay_Grade_ID = ""
+        $Vertical = ""        
+        $Location = ""
+        $Hire_Date = ""
+        $home_address_state = ""
+        $date_of_joining = ""
+        $Joining_Month = ""
+        $Joining_Year = ""
+        $Total_Experience = ""
+        $Overall_Experience = ""
+        $Type_of_Hire = ""
+        $Grade = ""
+        $Grade_Group = ""
+        $Rebadged_External_hire = ""
+        $Tenure = ""
+        $Tenure_Range = ""
+        $Date_Of_Birth = ""
+        $Department = ""
+        $Year_of_Birth = ""
+        $Age = ""
+        $Generation = ""
+        $Age_Range = ""
+        $Depart = ""
+        $Vendor_Flag = ""
+
+
+        
+
+        # Get the current date
+        $currentDate = Get-Date -Format 'MM/dd/yyyy'
+
+        # Calculate the first day of the next month
+        $firstDayOfNextMonth = (Get-Date -Day 1).AddMonths(1)
+
+        # Subtract one day to get the last day of the current month
+        $lastDayOfMonth = $firstDayOfNextMonth.AddDays(-1)
+        # Output the last day of the month
+        $lastDayOfMonth.ToString('MM/dd/yyyy')
+
+        $Report_Month = $lastDayOfMonth.ToString('MM/dd/yyyy')
+        $status = if ($result.emplStatusNav.externalCode -eq 'T') { 'Terminated' }else { 'Active' }
+ 
+        $userid = $result.userId
+   
+        $Date_Of_Birth = $result.employmentNav.personNav.dateOfBirth
+        
+        $full_Name = $result.employmentNav.personNav.personalInfoNav.results.formalName
+        $Gender = $result.employmentNav.personNav.personalInfoNav.results.gender
+  
+        $Designation_Name = $result.jobTitle
+        
+        $Email = if ($result.employmentNav.personNav.emailNav.results.count -gt 0) { $result.employmentNav.personNav.emailNav.results[0].emailAddress }
+
+        $Supervisor_Employee_ID = $result.managerId
+
+        foreach ($res in $result.employmentNav.empJobRelationshipNav.results) {
+            if ($res.relationshipTypeNav.externalCode -eq 'hr manager') {
+                $HR = $res.relUserId
+                'Rel user ID : ' + $res.relUserId
+            }
+        }
+        $Business_unit = $result.businessUnit
+        $Pay_Grade_ID = $result.payGradeNav.externalCode
+        
+        $Vertical = if ($result.jobCode -like '*DEL*' -or $result.jobCode -like '*IT*' -or $result.department -like '*IT*' -or $result.department -like '*CEO*') { 'Technology' }elseif ($result.jobCode -like '*OPS*' -or $result.department -like '*RSS*' -or $result.department -like '*BPM*') { 'Ops' }elseif ($result.department -like '*EF*' -or $result.department -like '*LND*' -or $result.jobCode -like '*ENB*') { 'Enabling Function' } else { $result.jobCode }
+        $Location = $result.location
+
+        $Hire_Date = $result.employmentNav.startDate
+        
+        $home_address_state = $result.employmentNav.personNav.homeAddressNavDEFLT.results[0].state
+        
+        $date_of_joining = $result.employmentNav.startDate
+        if ($null -ne $date_of_joining ) {
+            $Joining_Month = $date_of_joining.ToString('MM')
+            $Joining_Year = $date_of_joining.ToString('yyyy')
+        }
+        
+        $Total_Experience = $result.customLong1
+        #todo:
+        #$Overall_Experience=$result.userNav.results[0].approverOfAdvanceNav.attachmentNav.candidateNav.overallExperience.externalCode
+        
+
+        $Type_of_Hire = $result.customString20Nav.externalCode
+        $Grade = $result.payGrade 
+        
+        $Grade_Group = if ($Grade -like 'T*') { 'T2 & Below' }elseif (($Grade -eq 'P1') -or ($Grade -eq 'P2')) { 'P1 - P2' } elseif (($Grade -eq 'P3') -or ($Grade -eq 'P4')) { 'P3 - P4' }elseif (($Grade -eq 'M1') -or ($Grade -eq 'M3')) { 'M1 - M3' } else { "M4 & Abv" }
+
+
+        $Rebadged_External_hire = if ($null -ne $result.customString15Nav ) { $result.customString15Nav.results[0].externalCode }
+        $Department = $result.department
+        #todo:
+        #$Tenure=$result.employmentNav.results[0].customString2
+
+        if ($null -ne $Hire_Date ) {
+            $difference = New-TimeSpan -Start $Hire_Date  -End $currentDate
+
+            
+            $Tenure = $difference.Days
+
+            $Overall_Experience = [Math]::Floor($Tenure / 30) + $result.customLong2
+
+            $Tenure_Range = if ($Tenure -lt 91) { "0 to 3 m" } elseif ($Tenure -lt 181) { "3 to 6 m" } elseif ($Tenure -lt 366) { "6 to 12 m" } elseif ($Tenure -lt 731) { "1 to 2 yr" } elseif ($Tenure -lt 1096) { "1 to 2 yr" } elseif ($Tenure -lt 1826) { "3 to 5 yr" } else { "More than 5 yr" } 
+        }
+        if ($null -ne $Date_Of_Birth ) {
+        
+            $Year_of_Birth = $Date_Of_Birth.toString('yyyy')
+
+            $difference1 = New-TimeSpan -Start $Date_Of_Birth -End $currentDate
+            $Age = [Math]::Floor(($difference1.Days) / 365)
+            
+            $Generation = if ($Year_of_Birth -le 1960) { "Baby Boomers" }elseif ($year_of_birth -lt 1980) { "Generation X" } elseif ($year_of_birth -lt 1995) { "Millennials" } elseif ($year_of_birth -le 2010) { "Generation Z" } else { "-" }
+
+        
+            $Age_Range = if ($age -lt 26) { '18 - 25' }elseif ($age -lt 31 ) { '26 - 30' } elseif ($age -lt 36) { '31 - 35' }elseif ($age -lt 41) { '36 - 40' } else { "40+" }
+        }
+
+        $Depart = if ($Vertical -eq 'Technology' -or $Vertical -eq 'Ops' -or $Vertical -eq 'Enablement') { 'TRUE' }else { 'FALSE' }
+        
+        $Vendor_Flag = if ($userid -gt 300000 -and $userid -lt 400000) { 'N' } else { 'Y' }
+        $Object = New-Object PSObject -Property @{
+            "Report Month"              = $Report_Month
+            Status                      = $status
+            UserId                      = $userid
+            "Full Name"                 = $full_Name
+            "Title"                     = $Designation_Name
+            Gender                      = $Gender
+            Email                       = $Email
+            "Supervisor Employee ID"    = $Supervisor_Employee_ID
+            HR                          = $HR
+            "Business Unit"             = $Business_unit
+            "Pay Grade ID"              = $Pay_Grade_ID
+            Vertical                    = $Vertical
+            Location                    = $Location
+            "Hire Date"                 = $Hire_Date
+            "Address State"             = $home_address_state
+            "Date of Joining"           = $date_of_joining
+            "Joining Month"             = $Joining_Month
+            "Joining Year"              = $Joining_Year
+            "Total Experience"          = $Total_Experience
+            "Overall Experience"        = $Overall_Experience
+            "Type of Hire"              = $Type_of_Hire
+            Grade                       = $Grade
+            "Grade Group"               = $Grade_Group
+            "Rebadged or External Hire" = $Rebadged_External_hire
+            "Vendor Flag"               = $Vendor_Flag
+            Tenure                      = $Tenure
+            "Tenure Range"              = $Tenure_Range
+            "Date Of Birth"             = $Date_Of_Birth
+            Department                  = $Department
+            YOB                         = $Year_of_Birth
+            Age                         = $Age
+            Generation                  = $Generation
+            "Age Range"                 = $Age_Range
+            Depart                      = $Depart
+            
+        }
+        
+        $peopleCount += $Object 
+        
+    }
+
+    $output = $peopleCount | Export-Csv $filename_csv -Append -NoTypeInformation -Encoding UTF8 
+    
+    
+}
+/
+function merge_manualentries {
+    
+
+    # File paths
+    $manualEntriesCsvPath = "C:\MIS_Platform\manualentries_0212.csv"
+    $peopleCountCsvPath = "C:\MIS_Platform\people_count_prd.csv"
+    $outputCsvPath = "C:\MIS_Platform\output files\people_count_prd.csv"
+
+    # Import CSV files
+    $manualEntriesCsv = Import-Csv -Path $manualEntriesCsvPath
+    $peopleCountCsv = Import-Csv -Path $peopleCountCsvPath
+    
+    if (test-path $outputCsvPath) {
+
+        Remove-Item $outputCsvPath
+
+    }
+ 
+    $result = New-Item -Path $outputCsvPath -ItemType File
+
+    # Create a dictionary for manual entries based on Employee_ID
+    $manualEntriesMap = @{}
+    foreach ($record in $manualEntriesCsv) {
+        $manualEntriesMap[$record.Employee_ID] = @{
+            Vertical          = $record.Department
+            Rebadged_External = $record.Rebadged_External_Hire
+        }
+    }
+
+    # Merged result array
+    $mergedData = @()
+
+    foreach ($peopleCount in $peopleCountCsv) {
+        $empId = $peopleCount.UserId  # Match Employee_ID from manual entries with userid in people count
+
+        # Check if empId exists in manualEntries
+        $manualData = $manualEntriesMap[$empId]
+        
+        $Object = New-Object PSObject -Property @{
+            Vertical                    = if ($manualData) { $manualData.Vertical } else { $peopleCount.Vertical }
+            "Rebadged or External Hire" = if ($manualData) { $manualData.Rebadged_External } else { $peopleCount.Rebadged_External }
+            "Report Month"              = $peopleCount."Report Month"
+            Status                      = $peopleCount.Status
+            UserId                      = $peopleCount.UserId
+            "Full Name"                 = $peopleCount."Full Name"
+            Title                       = $peopleCount."Title"
+            Gender                      = $peopleCount.Gender
+            Email                       = $peopleCount.Email
+            "Supervisor Employee ID"    = $peopleCount."Supervisor Employee ID"
+            HR                          = $peopleCount.HR
+            "Business Unit"             = $peopleCount."Business Unit"
+            "Pay Grade ID"              = $peopleCount."Pay Grade ID"           
+            Location                    = $peopleCount.Location
+            "Hire Date"                 = $peopleCount."Hire Date"
+            "Address State"             = $peopleCount."Address State"
+            "Date of Joining"           = $peopleCount."Date of Joining"
+            "Joining Month"             = $peopleCount."Joining Month"
+            "Joining Year"              = $peopleCount."Joining Year"
+            "Total Experience"          = $peopleCount."Total Experience"
+            "Overall Experience"        = $peopleCount."Overall Experience"
+            "Type of Hire"              = $peopleCount."Type of Hire"
+            Grade                       = $peopleCount.Grade
+            "Grade Group"               = $peopleCount."Grade Group"
+            Tenure                      = $peopleCount.Tenure
+            "Tenure Range"              = $peopleCount."Tenure Range"
+            "Date Of Birth"             = $peopleCount."Date Of Birth"
+            Department                  = $peopleCount.Department
+            YOB                         = $peopleCount.YOB
+            Age                         = $peopleCount.Age
+            Generation                  = $peopleCount.Generation
+            "Age Range"                 = $peopleCount."Age Range"
+            Depart                      = $peopleCount.Depart
+            "Vendor Flag"               = $peopleCount."Vendor Flag"
+        }
+        
+        $mergedData += $Object
+    }
+
+    # Export merged data
+    $mergedData | Export-Csv -Path $outputCsvPath -NoTypeInformation -Encoding UTF8 -Force 
+
+    Write-Host "Merge completed. Output saved to: $outputCsvPath"
+}
+
+function merge_reports {
+    
+
+    $exitDetailsCsvPath = "C:\MIS_Platform\exit_details_prd.csv"
+    $peopleCountCsvPath = "C:\MIS_Platform\output files\people_count_prd.csv"
+
+    $exitDetailsCsvPath
+    $peopleCountCsvPath
+    $filename_csv = "C:\MIS_Platform\hr_exit_details.csv"
+    $exitDetailsCsv = Import-Csv -Path $exitDetailsCsvPath
+    $peopleCountCsv = Import-Csv -Path $peopleCountCsvPath
+
+    if (test-path $filename_csv) {
+
+        Remove-Item $filename_csv
+
+    }
+ 
+    $result = New-Item -Path $filename_csv -ItemType File
+
+    $filename_csv
+    $exitDetailsMap = @{}
+
+    foreach ($record in $exitDetailsCsv) {
+        $exitDetailsMap[$record."Employee ID"] = $record
+    }
+
+    $peopleCountMap = @{}
+    foreach ($record in $peopleCountCsv) {
+        #if ($record.status -eq 'Terminated') {
+        $peopleCountMap[$record.UserId] = $record
+        #}
+    }
+
+    $exitEmployeeDetails = @()
+    foreach ($exitDetail in $exitDetailsMap.Keys) {
+        if ($peopleCountMap.ContainsKey($exitDetail)) {
+            
+            $exitDetails = $exitDetailsMap[$exitDetail]
+            $exits = $peopleCountMap[$exitDetail]
+
+            $Object = New-Object PSObject -Property @{
+                "Employee ID"               = $exitDetails."Employee ID"
+                Reason                      = $exitDetails.Reason
+                "Sub Reason"                = $exitDetails."Sub Reason"
+                "Reason-HRO"                = $exitDetails."Reason-HRO"
+                "Sub Reason - HRO"          = $exitDetails."Sub Reason - HRO"
+                "Last Working Date"         = $exitDetails."Last Working Date"
+                "Report Month"              = $exits."Report Month"
+                Status                      = $exits.Status
+                UserId                      = $exits.UserId
+                "Full Name"                 = $exits."Full Name"
+                "Title"                     = $exits.Title
+                Gender                      = $exits.Gender
+                Email                       = $exits.Email
+                "Supervisor Employee ID"    = $exits."Supervisor Employee ID"
+                HR                          = $exits.HR
+                "Business Unit"             = $exits."Business Unit"
+                "Pay Grade ID"              = $exits."Pay Grade ID"
+                Vertical                    = $exits.Vertical
+                Location                    = $exits.Location
+                "Hire Date"                 = $exits."Hire Date"
+                "Address State"             = $exits."Address State"
+                "Date of Joining"           = $exits."Date of Joining" 
+                "Joining Month"             = $exits."Joining Month"
+                "Joining Year"              = $exits."Joining Year" 
+                "Total Experience"          = $exits."Total Experience"
+                "Overall Experience"        = $exits."Overall Experience"
+                "Type of Hire"              = $exits."Type of Hire"
+                Grade                       = $exits.Grade
+                "Grade Group"               = $exits."Grade Group"
+                "Rebadged or External Hire" = $exits."Rebadged or External Hire"
+                "Vendor Flag"               = $exits."Vendor Flag"
+                Tenure                      = $exits.Tenure
+                "Tenure Range"              = $exits."Tenure Range"
+                "Date Of Birth"             = $exits."Date Of Birth" 
+                Department                  = $exits.Department
+                YOB                         = $exits.YOB
+                Age                         = $exits.Age
+                Generation                  = $exits.Generation
+                "Age Range"                 = $exits."Age Range" 
+                Depart                      = $exits.Depart
+            }
+            $exitEmployeeDetails += $Object
+        }
+      
+    }
+    
+    $exitEmployeeDetails | Export-Csv $filename_csv -Append -NoTypeInformation -Encoding UTF8 
+}
+
+ 
+ 
