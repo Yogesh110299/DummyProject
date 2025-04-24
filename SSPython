@@ -142,143 +142,136 @@ class ScreenshotApp(QWidget):
 ##                                  "Registering global hotkeys might fail.\n"
 ##                                  "Please restart with 'Run as administrator'.")
 
-    def init_ui(self):
-        # --- UI Setup Code ---
-        main_layout = QVBoxLayout()
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_content = QWidget()
-        layout = QVBoxLayout(scroll_content)
+   def init_ui(self):
+    # --- UI Setup Code ---
+    main_layout = QVBoxLayout()
+    scroll_area = QScrollArea()
+    scroll_area.setWidgetResizable(True)
+    scroll_content = QWidget()
+    grid_layout = QGridLayout(scroll_content)  # Use QGridLayout
 
-        # Settings Group
-        basic_group = QGroupBox("Settings")
-        basic_group.setStyleSheet("color: black;font-weight: bold;")
-        basic_layout = QVBoxLayout()
-        basic_layout.addWidget(QLabel("Test Case Name:"))
-        self.test_case_input = QLineEdit()
-        self.test_case_input.setPlaceholderText("Enter Case Name (Default: Evidence)")
-        basic_layout.addWidget(self.test_case_input)
-        basic_layout.addWidget(QLabel("Document Version (e.g., v1):"))
-        self.version_input = QLineEdit("v1")
-        basic_layout.addWidget(self.version_input)
-        basic_layout.addWidget(QLabel("Screenshot Key:"))
-        self.hotkey_input = QLineEdit(self.default_key)
-        if not KEYBOARD_AVAILABLE:
-            self.hotkey_input.setEnabled(False)
-            self.hotkey_input.setToolTip("Requires 'keyboard' library")
-        basic_layout.addWidget(self.hotkey_input)
-        basic_group.setLayout(basic_layout)
-        layout.addWidget(basic_group)
+    # Settings Group
+    settings_group = QGroupBox("Settings")
+    settings_group.setStyleSheet("color: black;font-weight: bold;")
+    grid_layout.addWidget(settings_group, 0, 0, 1, 2)  # Span 2 columns
+    settings_layout = QGridLayout()
+    settings_group.setLayout(settings_layout)
 
-        # Monitor Selection Group
-        monitor_group = QGroupBox("Monitor Selection")
-        monitor_group.setStyleSheet("color: black;font-weight: bold;")
-        monitor_layout = QVBoxLayout()
-        self.monitor_mode_combo = QComboBox()
-        self.monitor_mode_combo.addItem("Single Monitor")
-        self.monitor_mode_combo.addItem("Capture All Monitors (Stitched)")
-        self.monitor_mode_combo.addItem("Select Multiple Monitors")
-        self.monitor_mode_combo.currentIndexChanged.connect(self.monitor_mode_changed)
-        monitor_layout.addWidget(self.monitor_mode_combo)
-        self.single_monitor_combo = QComboBox()
-        self.populate_single_monitor_combo()
-        monitor_layout.addWidget(self.single_monitor_combo)
-        self.multiple_monitor_list = QListWidget()
-        self.populate_multiple_monitor_list()
-        monitor_layout.addWidget(self.multiple_monitor_list)
-        self.update_monitor_visibility()
-        monitor_group.setLayout(monitor_layout)
-        layout.addWidget(monitor_group)
+    settings_layout.addWidget(QLabel("Test Case Name:"), 0, 0)
+    self.test_case_input = QLineEdit()
+    self.test_case_input.setPlaceholderText("Enter Case Name (Default: Evidence)")
+    settings_layout.addWidget(self.test_case_input, 0, 1)
 
-        # Output Group
-        output_group = QGroupBox("Output Settings")
-        output_group.setStyleSheet("color: black;font-weight: bold;")
-        output_layout = QVBoxLayout()
-        output_layout.addWidget(QLabel("Output Folder:"))
-        folder_layout = QHBoxLayout()
-        self.folder_input = QLineEdit()
-        self.folder_input.setPlaceholderText("Select folder to save documents")
-        browse_button = QPushButton("Browse...")
-        browse_button.clicked.connect(self.browse_folder)
-        folder_layout.addWidget(self.folder_input)
-        folder_layout.addWidget(browse_button)
-        output_layout.addLayout(folder_layout)
-        self.timestamp_checkbox = QCheckBox("Add Timestamp to Description")
-        self.increment_checkbox = QCheckBox("Enable Auto-increment Count")
-        self.increment_spin = QSpinBox()
-        self.increment_spin.setValue(1); self.increment_spin.setMinimum(1)
-        self.delete_checkbox = QCheckBox("Delete Images After Save")
-        self.generate_excel_checkbox = QCheckBox("Generate Excel Document with Images")
-        if not OPENPYXL_AVAILABLE:
-             self.generate_excel_checkbox.setEnabled(False)
-             self.generate_excel_checkbox.setToolTip("Requires 'openpyxl' library")
+    settings_layout.addWidget(QLabel("Document Version:"), 1, 0)
+    self.version_input = QLineEdit("v1")
+    settings_layout.addWidget(self.version_input, 1, 1)
 
-        # --- Add Taskbar Control Checkbox ---
-        self.taskbar_checkbox = QCheckBox("Hide Taskbar During Capture")
-        if os.name != 'nt': # Only enable on Windows
-            self.taskbar_checkbox.setEnabled(False)
-            self.taskbar_checkbox.setToolTip("Taskbar control only available on Windows")
-        else:
-             self.taskbar_checkbox.toggled.connect(self.toggle_taskbar_on_check)
+    settings_layout.addWidget(QLabel("Screenshot Key:"), 2, 0)
+    self.hotkey_input = QLineEdit(self.default_key)
+    if not KEYBOARD_AVAILABLE:
+        self.hotkey_input.setEnabled(False)
+        self.hotkey_input.setToolTip("Requires 'keyboard' library")
+    settings_layout.addWidget(self.hotkey_input, 2, 1)
 
-        output_layout.addWidget(self.timestamp_checkbox)
-        output_layout.addWidget(self.increment_checkbox)
-        inc_layout = QHBoxLayout()
-        inc_layout.addWidget(QLabel("Increment By:")); inc_layout.addWidget(self.increment_spin)
-        output_layout.addLayout(inc_layout)
-        output_layout.addWidget(self.delete_checkbox);
-        output_layout.addWidget(self.generate_excel_checkbox)
-        output_layout.addWidget(self.taskbar_checkbox) # Add the new checkbox here
-        output_group.setLayout(output_layout)
-        layout.addWidget(output_group)
+    # Monitor Selection Group
+    monitor_group = QGroupBox("Monitor Selection")
+    monitor_group.setStyleSheet("color: black;font-weight: bold;")
+    grid_layout.addWidget(monitor_group, 1, 0, 1, 2)  # Span 2 columns
+    monitor_layout = QGridLayout()
+    monitor_group.setLayout(monitor_layout)
 
-        # Description & Preview
-        layout.addWidget(QLabel("Screenshot Description:"))
-        self.description_input = QLineEdit()
-        layout.addWidget(self.description_input)
-        layout.addWidget(QLabel("Screenshot Preview:"))
-        self.preview_label = QLabel("Preview will appear here")
-        self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setFixedSize(300, 200)
-        self.preview_label.setStyleSheet("border: 1px solid black; background-color: #f0f0f0;")
-        layout.addWidget(self.preview_label)
+    monitor_layout.addWidget(QLabel("Monitor Mode:"), 0, 0)
+    self.monitor_mode_combo = QComboBox()
+    self.monitor_mode_combo.addItem("Single Monitor")
+    self.monitor_mode_combo.addItem("Capture All Monitors (Stitched)")
+    self.monitor_mode_combo.addItem("Select Multiple Monitors")
+    self.monitor_mode_combo.currentIndexChanged.connect(self.monitor_mode_changed)
+    monitor_layout.addWidget(self.monitor_mode_combo, 0, 1)
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        self.start_button = QPushButton("Start New Capture");
-        self.append_button = QPushButton("Append to Existing")
-        self.stop_button = QPushButton("End Capture & Save");
-        self.convert_pdf_button = QPushButton("Convert Doc to PDF")
-        if not DOCX2PDF_AVAILABLE:
-             self.convert_pdf_button.setEnabled(False);
-             self.convert_pdf_button.setToolTip("Requires 'docx2pdf' library (pip install docx2pdf pywin32)") # Updated tooltip
-             logging.info("Init UI: PDF button disabled (docx2pdf not available).") # Log reason
-        else:
-             self.convert_pdf_button.setEnabled(False); # Start disabled even if library exists
-             logging.info("Init UI: PDF button initially disabled (awaiting successful save).")
+    monitor_layout.addWidget(QLabel("Single Monitor:"), 1, 0)
+    self.single_monitor_combo = QComboBox()
+    self.populate_single_monitor_combo()
+    monitor_layout.addWidget(self.single_monitor_combo, 1, 1)
 
-        self.start_button.clicked.connect(self.start_new_capture); self.append_button.clicked.connect(self.append_to_existing)
-        self.stop_button.clicked.connect(self.stop_capture);
-        self.convert_pdf_button.clicked.connect(self.convert_to_pdf)
-        self.stop_button.setEnabled(False)
+    monitor_layout.addWidget(QLabel("Multiple Monitors:"), 2, 0)
+    self.multiple_monitor_list = QListWidget()
+    self.populate_multiple_monitor_list()
+    monitor_layout.addWidget(self.multiple_monitor_list, 2, 1)
+    self.update_monitor_visibility()
 
-        button_layout.addWidget(self.start_button);
-        button_layout.addWidget(self.append_button)
-        button_layout.addWidget(self.stop_button); button_layout.addWidget(self.convert_pdf_button)
-        layout.addLayout(button_layout)
+    # Output Group
+    output_group = QGroupBox("Output Settings")
+    output_group.setStyleSheet("color: black;font-weight: bold;")
+    grid_layout.addWidget(output_group, 2, 0, 1, 2)  # Span 2 columns
+    output_layout = QGridLayout()
+    output_group.setLayout(output_layout)
 
-        # Status
-        self.status_label = QLabel("Status: Ready")
-        if not KEYBOARD_AVAILABLE: self.status_label.setText("Status: Ready (Hotkey disabled - install 'keyboard')")
-        layout.addWidget(self.status_label)
+    output_layout.addWidget(QLabel("Output Folder:"), 0, 0)
+    folder_layout = QHBoxLayout()
+    self.folder_input = QLineEdit()
+    self.folder_input.setPlaceholderText("Select folder to save documents")
+    browse_button = QPushButton("Browse...")
+    browse_button.clicked.connect(self.browse_folder)
+    folder_layout.addWidget(self.folder_input)
+    folder_layout.addWidget(browse_button)
+    output_layout.addLayout(folder_layout, 0, 1)
 
-        # Final layout setup
-        scroll_content.setLayout(layout)
-        scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
-        self.setLayout(main_layout)
-        self.resize(650, 750) # Increased height slightly for new checkbox
-        # --- End UI Setup Code ---
+    output_layout.addWidget(self.timestamp_checkbox, 1, 1)
+    output_layout.addWidget(self.increment_checkbox, 2, 1)
+
+    increment_layout = QHBoxLayout()
+    increment_layout.addWidget(QLabel("Increment By:"), 0, 0)
+    increment_layout.addWidget(self.increment_spin)
+    output_layout.addLayout(increment_layout, 3, 1)
+
+    output_layout.addWidget(self.delete_checkbox, 4, 1)
+    output_layout.addWidget(self.generate_excel_checkbox, 5, 1)
+    output_layout.addWidget(self.taskbar_checkbox, 6, 1)
+
+    # Description & Preview
+    grid_layout.addWidget(QLabel("Screenshot Description:"), 3, 0)
+    self.description_input = QLineEdit(), 3, 1
+    grid_layout.addWidget(self.description_input, 4, 0, 1, 2)  # Span 2 columns
+
+    grid_layout.addWidget(QLabel("Screenshot Preview:"), 5, 0, 1, 2, Qt.AlignCenter)  # Centered label
+    self.preview_label = QLabel("Preview will appear here")
+    self.preview_label.setAlignment(Qt.AlignCenter)
+    self.preview_label.setFixedSize(300, 200)
+    self.preview_label.setStyleSheet("border: 1px solid black; background-color: #f0f0f0;")
+    grid_layout.addWidget(self.preview_label, 6, 0, 1, 2)  # Span 2 columns
+
+    # Buttons
+    button_layout = QHBoxLayout()
+    self.start_button = QPushButton("Start New Capture")
+    self.append_button = QPushButton("Append to Existing")
+    self.stop_button = QPushButton("End Capture & Save")
+    self.convert_pdf_button = QPushButton("Convert Doc to PDF")
+
+    button_layout.addWidget(self.start_button)
+    button_layout.addWidget(self.append_button)
+    button_layout.addWidget(self.stop_button)
+    button_layout.addWidget(self.convert_pdf_button)
+    grid_layout.addLayout(button_layout, 7, 0, 1, 2)  # Span 2 columns
+
+    self.start_button.clicked.connect(self.start_new_capture)
+    self.append_button.clicked.connect(self.append_to_existing)
+    self.stop_button.clicked.connect(self.stop_capture)
+    self.convert_pdf_button.clicked.connect(self.convert_to_pdf)
+    self.stop_button.setEnabled(False)
+
+    # Status
+    self.status_label = QLabel("Status: Ready")
+    if not KEYBOARD_AVAILABLE:
+        self.status_label.setText("Status: Ready (Hotkey disabled - install 'keyboard')")
+    grid_layout.addWidget(self.status_label, 8, 0, 1, 2)  # Span 2 columns
+
+    # Final layout setup
+    scroll_content.setLayout(grid_layout)
+    scroll_area.setWidget(scroll_content)
+    main_layout.addWidget(scroll_area)
+    self.setLayout(main_layout)
+    self.resize(650, 750)
+    # --- End UI Setup Code ---
 
     def populate_single_monitor_combo(self):
         self.single_monitor_combo.clear()
