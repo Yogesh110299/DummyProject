@@ -1,0 +1,63 @@
+Setting Purge ID pend flags if any items exist that CANNOT be purged yet - For Each Row confirm DATECANBEDELETED is current date or in past THEN delete attempt can take place
+If single task/workpacket exists where CANDELETE date is in the future, then set PURGEAUDIT.DATADELETEPENDFLG = Y for the PURGEID
+If single docid exists where CANDELETE date is in the future, then set PURGEAUDIT.DOCDELETEPENDFLG = Y for the PURGEID
+SP will cycle through PURGETASK and PURGEWRKPKT and PURGEDOC for each PURGEID where PURGEAUDIT.ALLTASKDATAPURGEDFLG = N                                 
+DELETING TSKID,PKTID,DOCID rows in Primary Tables and Secondary Tables (any table listed in PURGETABLECONFIG where LEVEL in PKTID or TSKID)                              
+IF all Task Data has been purged update TASKPURGEFLG = Y for PURGEID in PURGETASK      
+IF all PKTID data has been purged update WRKPKTPURGEDFLG = Y for PURGEID in PURGEWORKPKT
+IF all DOC DATA has been purged update DOCDATAPURGEDFLG = Y for PURGEID in PURGEDOC
+THEN IF all rows in PURGETASK,PURGEWORKPKT, and PURGEDOC for PURGEID have PURGEFLG = Y 
+Update PURGEAUDIT.ALLTASKDATAPURGED = Y
+PURGECASE Placeholder
+For each row of data that is deleted populate DELETEDATE with current date for row
+For documents, as part of this process, it should only update DOCDATADELETEDATE column with current date
+
+
+
+desc purgeaudit;
+
+Name                 Null?    Type          
+-------------------- -------- ------------- 
+PURGEID              NOT NULL CHAR(11)      
+FILENAME             NOT NULL VARCHAR2(100) 
+FIRSTRUNDATE                  FLOAT(126)    
+FIRSTRUNTIME                  FLOAT(126)    
+PURGECOMPDATE                 FLOAT(126)    
+PURGECOMPTIME                 FLOAT(126)    
+DATADELETEPENDFLG    NOT NULL CHAR(1)       
+DOCDELETEPENDFLG     NOT NULL CHAR(1)       
+NUMTASKSPURGED                NUMBER        
+NUMDOCSPURGED                 NUMBER        
+ALLTASKDATAPURGEDFLG NOT NULL CHAR(1)       
+ALLDOCSPURGEDFLG     NOT NULL CHAR(1)       
+ACTIVE               NOT NULL CHAR(1)   
+
+desc purgetaskconfig;
+
+Name        Null?    Type         
+----------- -------- ------------ 
+PURGEID     NOT NULL CHAR(11)     
+DPTCODE     NOT NULL NUMBER       
+TSKCODE     NOT NULL NUMBER       
+CLIENTID             VARCHAR2(8)  
+BEGINDATE            FLOAT(126)   
+ENDDATE              FLOAT(126)   
+DATETYPE             VARCHAR2(10) 
+DOCTYPEDESC          CHAR(5)      
+COMPTASKFLG NOT NULL CHAR(1)   
+
+desc purgeidconfig;
+
+Name       Null?    Type     
+---------- -------- -------- 
+PURGEID    NOT NULL CHAR(11) 
+IDCODE     NOT NULL NUMBER   
+FLDNBR     NOT NULL NUMBER   
+FIELDVALUE NOT NULL CHAR(50) 
+
+desc purgetableconfig;
+Name         Null?    Type         
+------------ -------- ------------ 
+TABLENAME    NOT NULL VARCHAR2(30) 
+LOOKUPCOLUMN NOT NULL CHAR(6)      
+ACTIVE       NOT NULL CHAR(1)      
